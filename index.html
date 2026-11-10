@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OB EDITORR - Portfolio</title>
+  <link rel="icon" type="image/png" href="Logo.png">
+  <link rel="apple-touch-icon" href="Logo.png">
   
   <!-- Google Fonts: Bodoni Moda & Manrope -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1554,6 +1556,25 @@
             </div>
           </div>
 
+          <!-- Project 02 -->
+          <div class="work-card animate-on-scroll delay-2" data-index="1">
+            <div class="editorial-card-number">02 / 11</div>
+            <div class="mobile-work-meta">
+              <span class="mobile-project-counter">02 / 11</span>
+              <span class="mobile-project-category">PERFORMANCE · ADS</span>
+            </div>
+            <div class="work-thumbnail">
+              <div class="play-icon"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg></div>
+              <div class="work-hover-cta" data-key="watchProjectCTA">WATCH PROJECT →</div>
+              <video src="Ads (2).mp4" muted playsinline preload="metadata"></video>
+            </div>
+            <div class="work-info">
+              <div class="work-category-tag">PERFORMANCE · ADS</div>
+              <h3 data-key="workAds2Title">Commercial Suite II</h3>
+              <p data-key="workAds2Desc">Result-driven performance advertising blending striking visual aesthetics with persuasive narrative pacing.</p>
+            </div>
+          </div>
+
           <!-- Project 03 -->
           <div class="work-card animate-on-scroll delay-1" data-index="2">
             <div class="editorial-card-number">03 / 11</div>
@@ -2315,21 +2336,56 @@
         submitBtn.disabled = true;
         submitBtn.textContent = translations[currentLang].sendingBtn;
 
-        try {
-          const response = await fetch('https://formsubmit.co/ajax/bgusama65@gmail.com', {
-            method: 'POST',
-            headers: { 'Accept': 'application/json' },
-            body: new FormData(contactForm)
-          });
-          const result = await response.json();
+        /* Fallback: classic form post into a hidden iframe (no CORS, works from any origin) */
+        const fallbackSubmit = () => new Promise((resolve) => {
+          let frame = document.getElementById('hiddenSubmitFrame');
+          if (!frame) {
+            frame = document.createElement('iframe');
+            frame.name = 'hiddenSubmitFrame';
+            frame.id = 'hiddenSubmitFrame';
+            frame.style.display = 'none';
+            document.body.appendChild(frame);
+          }
+          let done = false;
+          const finish = () => { if (!done) { done = true; resolve(); } };
+          frame.addEventListener('load', finish, { once: true });
+          setTimeout(finish, 6000);
+          contactForm.setAttribute('target', 'hiddenSubmitFrame');
+          HTMLFormElement.prototype.submit.call(contactForm);
+        });
 
-          if (response.ok && (result.success === 'true' || result.success === true)) {
+        try {
+          let ok = false;
+          try {
+            const response = await fetch('https://formsubmit.co/ajax/bgusama65@gmail.com', {
+              method: 'POST',
+              headers: { 'Accept': 'application/json' },
+              body: new FormData(contactForm)
+            });
+            const result = await response.json();
+            console.log('FormSubmit response:', result);
+            ok = response.ok && (result.success === 'true' || result.success === true);
+            if (!ok) {
+              // Server answered but refused (e.g. email not activated yet)
+              formErrorMsg.textContent = (result && result.message) ? result.message : translations[currentLang].formError;
+              formErrorMsg.classList.add('show');
+              return;
+            }
+          } catch (networkErr) {
+            // fetch blocked (file://, CORS, offline...) -> use iframe fallback
+            console.warn('AJAX failed, using fallback submit:', networkErr);
+            await fallbackSubmit();
+            ok = true;
+          }
+
+          if (ok) {
+            contactForm.removeAttribute('target');
             contactForm.reset();
             successModal.classList.add('active');
-          } else {
-            throw new Error('Submission failed');
           }
         } catch (err) {
+          console.error(err);
+          formErrorMsg.textContent = translations[currentLang].formError;
           formErrorMsg.classList.add('show');
         } finally {
           submitBtn.disabled = false;
